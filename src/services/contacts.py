@@ -1,8 +1,10 @@
 from typing import List, Optional
+from fastapi import HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from src.repository.contacts import ContactRepository
 from src.schemas import ContactCreate, ContactUpdate
 from src.database.models import Contact, User
+from sqlalchemy.exc import IntegrityError
 
 
 class ContactService:
@@ -18,7 +20,16 @@ class ContactService:
         return await self.repository.get_contact_by_id(contact_id, user)
 
     async def create_contact(self, body: ContactCreate, user: User) -> Contact:
-        return await self.repository.create_contact(body, user)
+        try:
+            return await self.repository.create_contact(body, user)
+        except IntegrityError as e:
+            # You can further inspect the exception string if needed
+            if "contacts_email_key" in str(e):
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Contact with this email already exists",
+                )
+            raise
 
     async def update_contact(
         self, contact_id: int, body: ContactUpdate, user: User
